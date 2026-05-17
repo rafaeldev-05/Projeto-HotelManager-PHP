@@ -36,6 +36,72 @@ http://localhost:8000
 
 A Vercel usa o arquivo `vercel.json` para executar PHP com o runtime comunitario `vercel-php@0.9.0`.
 
+## Correcao do deploy na Vercel
+
+Localmente o projeto funciona com `php -S localhost:8000 -t public` porque o servidor embutido do PHP usa `public/index.php` como front controller e executa o PHP antes de enviar HTML ao navegador.
+
+Na Vercel, PHP nao e executado como Apache/Nginx tradicional. Se a entrada serverless nao estiver correta, a plataforma pode tratar o arquivo PHP como arquivo estatico ou gerar uma resposta sem o `Content-Type` esperado, o que aparece no navegador como download automatico de um arquivo pequeno chamado `download`.
+
+A entrada serverless real deste projeto e:
+
+```text
+api/index.php
+```
+
+Esse arquivo:
+
+- define o `Content-Type: text/html; charset=UTF-8`;
+- ajusta `SCRIPT_NAME`, `PHP_SELF` e `DOCUMENT_ROOT`;
+- preserva/reconstroi a rota publica recebida pela Vercel;
+- carrega o front controller original em `public/index.php`.
+
+O `vercel.json` envia somente assets para `public/assets` e manda todo o restante para `api/index.php`:
+
+```json
+{
+  "version": 2,
+  "functions": {
+    "api/index.php": {
+      "runtime": "vercel-php@0.9.0"
+    }
+  },
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/public/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.php?__route=$1"
+    }
+  ]
+}
+```
+
+Depois do deploy, teste estas URLs:
+
+- `/`
+- `/rooms`
+- `/products`
+- `/reservations`
+- `/reservations/create`
+- `/reviews/create`
+- `/assets/css/app.css`
+- `/assets/js/app.js`
+
+A home deve responder como `text/html`, e assets devem responder como CSS/JavaScript.
+
+Se continuar baixando arquivo depois do deploy:
+
+- confirme que o commit com `api/index.php` e `vercel.json` foi realmente publicado;
+- confira se o projeto da Vercel esta usando a raiz correta do repositorio em Project Settings;
+- confira se nao existe outro `vercel.json` em uma pasta acima/abaixo sendo usado no deploy;
+- veja os Build Logs para confirmar que `api/index.php` aparece como Function PHP com `vercel-php@0.9.0`;
+- confira Project Settings > Deployment Protection e Vercel Authentication;
+- confirme que voce esta acessando o dominio de producao correto, nao um deploy antigo.
+
+Para diagnostico temporario, defina a variavel de ambiente `VERCEL_DEBUG=1` na Vercel e acesse `/debug-vercel`. Essa rota mostra se o PHP foi executado, qual `REQUEST_URI` chegou na function e qual `public/index.php` foi carregado. Remova a variavel depois do teste.
+
 ## Papel do `api/index.php`
 
 Na Vercel, PHP precisa rodar como Serverless Function. O arquivo `api/index.php` e o ponto de entrada da function e apenas carrega o front controller original em `public/index.php`.
