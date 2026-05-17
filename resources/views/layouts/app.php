@@ -1,4 +1,7 @@
-<?php $appName = 'HotelManager'; ?>
+<?php
+$appName = 'HotelManager';
+$vercelAnalyticsScript = getenv('VERCEL_ANALYTICS_SCRIPT_SRC') ?: '';
+?>
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -46,6 +49,13 @@
     </main>
 
     <script src="/assets/js/app.js"></script>
+    <?php if ($vercelAnalyticsScript !== ''): ?>
+        <script>
+            window.va = window.va || function () {
+                (window.vaq = window.vaq || []).push(arguments);
+            };
+        </script>
+        <script defer src="<?= e($vercelAnalyticsScript) ?>"></script>
+    <?php endif; ?>
 </body>
 </html>
-
